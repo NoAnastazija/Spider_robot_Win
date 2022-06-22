@@ -198,11 +198,11 @@ int main(int argc, char** argv) try {
         if (std::strcmp(t, "robot pojdi naprej") == 0 || std::strcmp(t, "robot go forward") == 0)
           command = "f";
         else if (std::strcmp(t, "robot pojdi nazaj") == 0 || std::strcmp(t, "robot go backward") == 0)
-          command = "p";
+          command = "b";
         else if (std::strcmp(t, "robot pojdi levo") == 0 || std::strcmp(t, "robot obrni se levo") == 0 || std::strcmp(t, "robot turn left") == 0)
           command = "l";
         else if (std::strcmp(t, "robot pojdi desno") == 0 || std::strcmp(t, "robot obrni se desno") == 0 || std::strcmp(t, "robot turn right") == 0)
-          command = "m";
+          command = "r";
         else
           command.clear();
         if (!command.empty()) {
