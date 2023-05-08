@@ -203,6 +203,12 @@ int main(int argc, char** argv) try {
           command = "l";
         else if (std::strcmp(t, "robot pojdi desno") == 0 || std::strcmp(t, "robot obrni se desno") == 0 || std::strcmp(t, "robot turn right") == 0)
           command = "r";
+        else if (std::strcmp(t, "handshake") == 0 || std::strcmp(t, "nice to meet you") == 0 || std::strcmp(t, "moje ime je") == 0)
+          command = "s";
+        else if (std::strcmp(t, "hej") == 0 || std::strcmp(t, "hejla") == 0 || std::strcmp(t, "hello") == 0 || std::strcmp(t, "hey") == 0)
+          command = "w";
+        else if (std::strcmp(t, "dance") == 0 || std::strcmp(t, "ples") == 0)
+          command = "d";
         else
           command.clear();
         if (!command.empty()) {
