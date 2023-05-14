@@ -122,6 +122,51 @@ static std::string trim(const std::string &s) {
     return rtrim(ltrim(s));
 }
 
+constexpr size_t STACK_BUFFER_BYTES = 0x100;
+
+template<class _Traits1, class _Ax1, class _Traits2, class _Ax2>
+static _Success_(return != 0) int MultiByteToWideChar(_In_ UINT CodePage, _In_ DWORD dwFlags, _In_ const std::basic_string<char, _Traits1, _Ax1> &sMultiByteStr, _Out_ std::basic_string<wchar_t, _Traits2, _Ax2> &sWideCharStr) noexcept
+{
+    WCHAR szStackBuffer[STACK_BUFFER_BYTES/sizeof(WCHAR)];
+
+    // Try to convert to stack buffer first.
+    int cch = ::MultiByteToWideChar(CodePage, dwFlags, sMultiByteStr.c_str(), (int)sMultiByteStr.length(), szStackBuffer, _countof(szStackBuffer));
+    if (cch) {
+        // Copy from stack.
+        sWideCharStr.assign(szStackBuffer, cch);
+    } else if (::GetLastError() == ERROR_INSUFFICIENT_BUFFER) {
+        // Query the required output size. Allocate buffer. Then convert again.
+        cch = ::MultiByteToWideChar(CodePage, dwFlags, sMultiByteStr.c_str(), (int)sMultiByteStr.length(), NULL, 0);
+        std::unique_ptr<WCHAR[]> szBuffer(new WCHAR[cch]);
+        cch = ::MultiByteToWideChar(CodePage, dwFlags, sMultiByteStr.c_str(), (int)sMultiByteStr.length(), szBuffer.get(), cch);
+        sWideCharStr.assign(szBuffer.get(), cch);
+    }
+
+    return cch;
+}
+
+template<class _Traits1, class _Ax1, class _Traits2, class _Ax2>
+static _Success_(return != 0) int WideCharToMultiByte(_In_ UINT CodePage, _In_ DWORD dwFlags, _In_ const std::basic_string<wchar_t, _Traits1, _Ax1> &sWideCharStr, _Out_ std::basic_string<char, _Traits2, _Ax2> &sMultiByteStr, _In_opt_z_ LPCSTR lpDefaultChar, _Out_opt_ LPBOOL lpUsedDefaultChar) noexcept
+{
+    CHAR szStackBuffer[STACK_BUFFER_BYTES/sizeof(CHAR)];
+
+    // Try to convert to stack buffer first.
+    int cch = ::WideCharToMultiByte(CodePage, dwFlags, sWideCharStr.c_str(), (int)sWideCharStr.length(), szStackBuffer, _countof(szStackBuffer), lpDefaultChar, lpUsedDefaultChar);
+    if (cch) {
+        // Copy from stack.
+        sMultiByteStr.assign(szStackBuffer, cch);
+    } else if (::GetLastError() == ERROR_INSUFFICIENT_BUFFER) {
+        // Query the required output size. Allocate buffer. Then convert again.
+        cch = ::WideCharToMultiByte(CodePage, dwFlags, sWideCharStr.c_str(), (int)sWideCharStr.length(), NULL, 0, lpDefaultChar, lpUsedDefaultChar);
+        std::unique_ptr<CHAR[]> szBuffer(new CHAR[cch]);
+        cch = ::WideCharToMultiByte(CodePage, dwFlags, sWideCharStr.c_str(), (int)sWideCharStr.length(), szBuffer.get(), cch, lpDefaultChar, lpUsedDefaultChar);
+        sMultiByteStr.assign(szBuffer.get(), cch);
+    }
+
+    return cch;
+}
+
+
 int main(int argc, char** argv) try {
   // Create a Speech client with the default configuration
   auto client = speech::SpeechClient(speech::MakeSpeechConnection());
@@ -191,9 +236,12 @@ int main(int argc, char** argv) try {
     for (auto const& result : response->results()) {
       std::cout << "Result stability: " << result.stability() << "\n";
       for (auto const& alternative : result.alternatives()) {
-        std::string transcript(trim(alternative.transcript()));
-        std::transform(transcript.begin(), transcript.end(), transcript.begin(), ::tolower);
-        std::cout << alternative.confidence() << "\t\"" << transcript << "\"\n";
+        std::string transcript(trim(alternative.transcript())), transcript_oem;
+        std::wstring transcript_w;
+        MultiByteToWideChar(CP_UTF8, 0, transcript, transcript_w);
+        std::transform(transcript_w.begin(), transcript_w.end(), transcript_w.begin(), ::towlower);
+        WideCharToMultiByte(CP_OEMCP, 0, transcript_w, transcript_oem, NULL, NULL);
+        std::cout << alternative.confidence() << "\t\"" << transcript_oem << "\"\n";
         auto t = transcript.c_str();
         if (std::strcmp(t, "robot pojdi naprej") == 0 || std::strcmp(t, "robot go forward") == 0)
           command = "f";
@@ -207,7 +255,7 @@ int main(int argc, char** argv) try {
           command = "s";
         else if (std::strcmp(t, "hej") == 0 || std::strcmp(t, "hejla") == 0 || std::strcmp(t, "hello") == 0 || std::strcmp(t, "hey") == 0)
           command = "w";
-        else if (std::strcmp(t, "dance") == 0 || std::strcmp(t, "ples") == 0)
+        else if (std::strcmp(t, "dance") == 0 || std::strcmp(t, "ples") == 0 || std::strcmp(t, "robot pleši") == 0)
           command = "d";
         else
           command.clear();
